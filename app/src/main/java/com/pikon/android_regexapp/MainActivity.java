@@ -4,6 +4,7 @@ import static com.pikon.android_regexapp.ValidationMode.ZIPCODE;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
@@ -12,12 +13,17 @@ import android.text.Spanned;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 
 import java.time.DateTimeException;
 import java.time.LocalDate;
@@ -26,6 +32,10 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -45,13 +55,15 @@ public class MainActivity extends AppCompatActivity {
         tvInfo = (TextView) findViewById( R.id.tvInfo );
 
         spVerificationMode = findViewById( R.id.spVerificationMode );
-        ArrayAdapter<String> adapter = new ArrayAdapter<>( this, androidx.appcompat.R.layout.support_simple_spinner_dropdown_item, ValidationMode.getAllLabels() );
+//        ArrayAdapter<String> adapter = new ArrayAdapter<>( this, androidx.appcompat.R.layout.support_simple_spinner_dropdown_item, ValidationMode.getAllLabels() );
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource( this, R.array.spinner_values, androidx.appcompat.R.layout.support_simple_spinner_dropdown_item );
         adapter.setDropDownViewResource( androidx.appcompat.R.layout.support_simple_spinner_dropdown_item );
         spVerificationMode.setAdapter( adapter );
         spVerificationMode.setOnItemSelectedListener( new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected( AdapterView<?> adapterView, View view, int i, long l ) {
                 etInput.setText( "" );
+                // TODO
                 validationMode = ValidationMode.values()[i];
                 etInput.setInputType( ValidationMode.getAllInputTypes()[i] );
                 if ( validationMode == ZIPCODE ) {
@@ -70,9 +82,18 @@ public class MainActivity extends AppCompatActivity {
         ( (Button) findViewById( R.id.btnValidate ) ).setOnClickListener( new View.OnClickListener() {
             @Override
             public void onClick( View view ) {
+                hideKeyboard( MainActivity.this );
                 updateResultText( validate( validationMode, etInput.getText().toString().trim() ) );
             }
         } );
+    }
+
+    public static void hideKeyboard(Activity activity) {
+        InputMethodManager imm = (InputMethodManager) activity.getSystemService(Activity.INPUT_METHOD_SERVICE);
+        View view = activity.getCurrentFocus();
+        if ( view == null )
+            view = new View( activity );
+        imm.hideSoftInputFromWindow( view.getWindowToken(), 0 );
     }
 
     private void updateResultText( boolean result ) {
@@ -99,11 +120,13 @@ public class MainActivity extends AppCompatActivity {
                 result = validatePhone( input );
                 break;
             case EMAIL:
+                result = validateEmail( input );
                 break;
             case PESEL:
                 result = validatePesel( input );
                 break;
             case IDCARD:
+                result = validateIdCard( input );
                 break;
             case FULLNAME:
                 result = validateFullname( input );
@@ -119,7 +142,26 @@ public class MainActivity extends AppCompatActivity {
     private boolean validateZipCode( String input ) {
         boolean res = Pattern.compile( "\\d{5}" ).matcher( input ).matches();
         if ( res ) {
+            String zipCode = input.substring(0,2) + '-' + input.substring(2);
+            Call<JsonArray> call = RetrofitZipCode.getClient().create(ZipCodeAPI.class).getPlaceFromZipCode( zipCode );
+            call.enqueue(new Callback<JsonArray>() {
+                @Override
+                public void onResponse(Call<JsonArray> call, Response<JsonArray> response) {
+                    Log.d( "DEBUG", response.body().toString() );
+                    if( response.body() == null || response.body().get(0).getAsJsonObject().get( "gmina" ) == null ) {
+                        tvInfo.setText("No location for given zip code");
+                        return;
+                    }
+                    ZipCodePlace zipCodePlace = new Gson().fromJson( response.body().get(0), ZipCodePlace.class );
+                    tvInfo.setText( zipCodePlace.toString() );
+                }
 
+                @Override
+                public void onFailure(Call<JsonArray> call, Throwable t) {
+                    tvInfo.setText( "Unable to find location for given zip code" );
+                    t.printStackTrace();
+                }
+            });
         }
         return res;
     }
@@ -150,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean validatePhone( String input ) {
-        String regex = "((\\+\\d{2})?\\d{9})|\\d{7}";
+        String regex = "((\\+\\d{2,3})?\\d{9})|\\d{7}";
         return Pattern.compile( regex, Pattern.CASE_INSENSITIVE ).matcher( input ).matches();
     }
 
@@ -160,5 +202,17 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean validateFullname( String input ) {
         return Pattern.compile( "[^\\d\\W]+\\s[^\\d\\W]+(\\-[^\\d\\W]+)?", Pattern.CASE_INSENSITIVE ).matcher( input ).matches();
+    }
+
+    private boolean validateEmail( String input ){
+        return Pattern.compile( "^[^\\d\\s]\\w{2,}@((\\w{1,}.\\w{3,})|(\\w{2,}.\\w{2,})|(\\w{3,}.\\w{1,}))", Pattern.CASE_INSENSITIVE ).matcher( input ).matches();
+    }
+
+    private boolean validateIdCard( String input ){
+        return Pattern.compile( "^[a-z][a-z0-9]{0,}\\d+[a-z0-9]*$", Pattern.CASE_INSENSITIVE ).matcher( input ).matches();
+    }
+
+    private boolean validatePassword( String input ){
+        return Pattern.compile( "[\\da-zA-Z]+[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]+[\\da-zA-Z]+" ).matcher( input ).matches();
     }
 }
