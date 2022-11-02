@@ -28,7 +28,8 @@ public class Validators {
                 @Override
                 public void onResponse( Call<JsonArray> call, Response<JsonArray> response ) {
                     if ( response.body() == null || response.body().get( 0 ).getAsJsonObject().get( "gmina" ) == null ) {
-                        tvInfo.setText( "No location for given zip code" );
+                        if( tvInfo != null )
+                            tvInfo.setText( "No location for given zip code" );
                         return;
                     }
                     ZipCodePlace zipCodePlace = new Gson().fromJson( response.body().get( 0 ), ZipCodePlace.class );
@@ -37,7 +38,8 @@ public class Validators {
 
                 @Override
                 public void onFailure( Call<JsonArray> call, Throwable t ) {
-                    tvInfo.setText( "Unable to find location for given zip code" );
+                    if( tvInfo != null )
+                        tvInfo.setText( "Unable to find location for given zip code" );
                     t.printStackTrace();
                 }
             } );
@@ -56,7 +58,8 @@ public class Validators {
         try {
             LocalDate.of( dateArr[0], dateArr[1] - 1, dateArr[2] );
         } catch ( DateTimeException ex ) {
-            Log.e( "CATCH", "Invalid date in PESEL" );
+            if( tvInfo != null )
+                Log.e( "CATCH", "Invalid date in PESEL" );
             return false;
         }
 
@@ -64,7 +67,8 @@ public class Validators {
         for ( int i = 0; i < pesel.length; i++ )
             sum += pesel[i] * weight[i];
         if ( sum % 10 == 0 ) {
-            tvInfo.setText( "GENDER: " + ( pesel[9] % 2 == 0 ? "K" : "M" ) );
+            if( tvInfo != null )
+                tvInfo.setText( "GENDER: " + ( pesel[9] % 2 == 0 ? "K" : "M" ) );
             return true;
         } else
             return false;
@@ -92,7 +96,7 @@ public class Validators {
     }
 
     public static boolean validatePassword( String input ) {
-        return input.length() >= 7 && Pattern.compile( "[\\da-zA-Z]+[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]+[\\da-zA-Z]+" ).matcher( input ).matches();
+        return Pattern.compile( "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&_])[A-Za-z\\d@$!%*#?&_]{7,}$" ).matcher( input ).matches();
     }
 
     public static boolean validateCensorship( String input, ArrayList<String> forbidden ) {
