@@ -13,7 +13,7 @@ public enum ValidationMode {
     IDCARD( "Idcard", InputType.TYPE_CLASS_TEXT ),
     FULLNAME( "Name&surname", InputType.TYPE_CLASS_TEXT ),
     PASSWORD( "Password", InputType.TYPE_TEXT_VARIATION_PASSWORD ),
-    CENSORSHIP( "Censorship", InputType.TYPE_CLASS_TEXT );
+    CENSORSHIP( "Censorship", InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE );
 
     public final String label;
     public final int inputType;

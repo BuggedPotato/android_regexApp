@@ -8,7 +8,7 @@
         <item>pesel</item>
         <item>idcard</item>
         <item>name&amp;surname</item>
-        <item>password </item>
+        <item>password</item>
         <item>censorship</item>
     </string-array>
 </resources>
